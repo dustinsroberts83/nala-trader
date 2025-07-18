@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import yfinance as yf
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 import plotly.express as px
@@ -10,6 +9,13 @@ import io
 import base64
 import warnings
 warnings.filterwarnings('ignore')
+
+# Try to import yfinance with error handling
+try:
+    import yfinance as yf
+except ImportError as e:
+    st.error(f"Error importing yfinance: {e}")
+    st.stop()
 
 # Page configuration
 st.set_page_config(
