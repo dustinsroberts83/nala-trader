@@ -2,20 +2,34 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-import plotly.graph_objects as go
-import plotly.express as px
-from PIL import Image
-import io
-import base64
 import warnings
 warnings.filterwarnings('ignore')
 
-# Try to import yfinance with error handling
+# Try to import required packages with error handling
 try:
     import yfinance as yf
 except ImportError as e:
     st.error(f"Error importing yfinance: {e}")
+    st.error("Please make sure yfinance is installed: pip install yfinance")
     st.stop()
+
+try:
+    import plotly.graph_objects as go
+    import plotly.express as px
+    PLOTLY_AVAILABLE = True
+except ImportError as e:
+    st.error(f"Error importing plotly: {e}")
+    st.error("Charts will not be available. Please install plotly: pip install plotly")
+    PLOTLY_AVAILABLE = False
+
+try:
+    from PIL import Image
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    
+import io
+import base64
 
 # Page configuration
 st.set_page_config(
