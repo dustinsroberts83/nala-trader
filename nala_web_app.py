@@ -583,7 +583,7 @@ def main():
             st.metric("Total Trades", len(trades))
         
         # Performance chart
-        if results['daily_values']:
+        if results['daily_values'] and PLOTLY_AVAILABLE:
             df_performance = pd.DataFrame(results['daily_values'])
             df_performance['date'] = pd.to_datetime(df_performance['date'])
             
@@ -604,6 +604,12 @@ def main():
             )
             
             st.plotly_chart(fig, use_container_width=True)
+        elif results['daily_values']:
+            # Fallback to Streamlit's built-in chart if plotly not available
+            df_performance = pd.DataFrame(results['daily_values'])
+            df_performance['date'] = pd.to_datetime(df_performance['date'])
+            df_performance = df_performance.set_index('date')
+            st.line_chart(df_performance['value'])
         
         # Detailed metrics
         col1, col2 = st.columns(2)
