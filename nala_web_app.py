@@ -565,6 +565,134 @@ class NalaTrader:
             'cash': cash
         }
 
+def analyze_performance_and_suggest(results, current_settings):
+    """Analyze trading results and suggest improvements"""
+    
+    trades = results['trades']
+    final_value = results['final_value']
+    total_contributed = results['total_contributed']
+    roi = (final_value - total_contributed) / total_contributed * 100
+    
+    # Calculate performance metrics
+    winning_trades = [t for t in trades if t.get('pnl_pct', 0) > 0]
+    losing_trades = [t for t in trades if t.get('pnl_pct', 0) < 0]
+    completed_trades = [t for t in trades if 'pnl_pct' in t]
+    
+    win_rate = len(winning_trades) / len(completed_trades) * 100 if completed_trades else 0
+    avg_win = np.mean([t['pnl_pct'] for t in winning_trades]) if winning_trades else 0
+    avg_loss = np.mean([t['pnl_pct'] for t in losing_trades]) if losing_trades else 0
+    total_trades = len(completed_trades)
+    
+    suggestions = []
+    new_settings = current_settings.copy()
+    
+    # Analyze and suggest improvements
+    if roi < 5:  # Poor performance
+        if win_rate < 40:  # Low win rate
+            suggestions.append("🎯 **Increase selectivity**: Raising momentum threshold to be more selective")
+            new_settings['momentum_threshold'] = min(current_settings['momentum_threshold'] + 5, 25)
+            
+            suggestions.append("📊 **Require stronger volume**: Increasing volume requirement for better signals")
+            new_settings['volume_spike_required'] = min(current_settings['volume_spike_required'] + 20, 200)
+        
+        if abs(avg_loss) > avg_win:  # Losses bigger than wins
+            suggestions.append("🛡️ **Tighter stop loss**: Reducing stop loss to preserve capital")
+            new_settings['stop_loss'] = max(current_settings['stop_loss'] - 2, 3)
+            
+            suggestions.append("📈 **Closer trailing stop**: Locking in profits sooner")
+            new_settings['trailing_stop_distance'] = max(current_settings['trailing_stop_distance'] - 3, 8)
+        
+        if total_trades < 10:  # Too few trades
+            suggestions.append("🔄 **More opportunities**: Lowering momentum threshold for more trades")
+            new_settings['momentum_threshold'] = max(current_settings['momentum_threshold'] - 3, 8)
+            
+            suggestions.append("💰 **Higher portfolio allocation**: Increasing investment level")
+            new_settings['portfolio_heat_limit'] = min(current_settings['portfolio_heat_limit'] + 10, 90)
+    
+    elif roi < 15:  # Moderate performance - fine tune
+        if win_rate > 60 and avg_win > abs(avg_loss):  # Good win rate, can be more aggressive
+            suggestions.append("📈 **Higher profit targets**: Increasing profit target to capture more upside")
+            new_settings['profit_target'] = min(current_settings['profit_target'] + 5, 35)
+            
+            suggestions.append("⏰ **Longer holds**: Extending minimum hold period for bigger moves")
+            new_settings['min_hold_days'] = min(current_settings['min_hold_days'] + 2, 7)
+        
+        elif win_rate < 45:  # Moderate win rate, need better entries
+            suggestions.append("🎯 **Better entry timing**: Slightly higher momentum threshold")
+            new_settings['momentum_threshold'] = min(current_settings['momentum_threshold'] + 2, 20)
+    
+    else:  # Good performance - minor optimizations
+        if win_rate > 65:  # Very high win rate, can take more risk
+            suggestions.append("🚀 **Maximize winners**: Increasing profit target for exceptional trades")
+            new_settings['profit_target'] = min(current_settings['profit_target'] + 3, 40)
+        
+        if total_trades > 50:  # Very active, maybe too many trades
+            suggestions.append("🎯 **Quality over quantity**: Slightly higher selectivity")
+            new_settings['momentum_threshold'] = min(current_settings['momentum_threshold'] + 1, 25)
+    
+    # Additional logic-based suggestions
+    if current_settings['portfolio_heat_limit'] < 60:
+        suggestions.append("💪 **Use more capital**: Your cash buffer might be too conservative")
+        new_settings['portfolio_heat_limit'] = min(current_settings['portfolio_heat_limit'] + 15, 80)
+    
+    if current_settings['min_hold_days'] < 2:
+        suggestions.append("⏰ **Reduce whipsaws**: Minimum hold period too short")
+        new_settings['min_hold_days'] = 3
+    
+    return suggestions, new_settings
+
+def show_performance_advisor(results, current_settings):
+    """Show performance analysis and improvement suggestions"""
+    
+    suggestions, new_settings = analyze_performance_and_suggest(results, current_settings)
+    
+    if not suggestions:
+        st.success("🎉 **Excellent performance!** Your settings are already well-optimized.")
+        return None
+    
+    with st.expander("🧠 NALA's Performance Advisor", expanded=True):
+        roi = (results['final_value'] - results['total_contributed']) / results['total_contributed'] * 100
+        
+        st.markdown(f"### 📊 Performance Analysis (ROI: {roi:.1f}%)")
+        
+        # Show suggestions
+        st.markdown("### 💡 **Suggested Improvements:**")
+        for suggestion in suggestions:
+            st.markdown(f"- {suggestion}")
+        
+        # Show what will change
+        st.markdown("### ⚙️ **Proposed Setting Changes:**")
+        changes_made = False
+        
+        for key, new_value in new_settings.items():
+            old_value = current_settings[key]
+            if new_value != old_value:
+                changes_made = True
+                change_direction = "↗️" if new_value > old_value else "↘️"
+                setting_name = key.replace('_', ' ').title()
+                st.markdown(f"- **{setting_name}**: {old_value} → {new_value} {change_direction}")
+        
+        if not changes_made:
+            st.info("No setting changes recommended - try adjusting your date range or initial investment.")
+            return None
+        
+        # Expected impact
+        expected_impact = "higher win rate" if roi < 10 else "better risk-adjusted returns"
+        st.info(f"🎯 **Expected Impact**: These changes should improve {expected_impact} and overall performance.")
+        
+        # Action buttons
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("✅ **Apply Changes & Rerun**", type="primary", use_container_width=True):
+                return new_settings
+        
+        with col2:
+            if st.button("❌ **Keep Current Settings**", use_container_width=True):
+                return None
+    
+    return None
+
 def show_strategy_explanation(max_positions, momentum_threshold, profit_target, stop_loss,
                             portfolio_heat_limit, trailing_stop_distance, volume_spike_required, min_hold_days):
     """Show detailed explanation of NALA's trading logic"""
@@ -847,8 +975,8 @@ def main():
         # Results dashboard
         st.header("🐕 NALA Trading Results")
         
-        # Key metrics with total investment
-        col1, col2, col3, col4 = st.columns(4)
+        # Key metrics with total investment and advisor
+        col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 1.5, 1.5])
         
         with col1:
             st.metric("Final Value", f"${final_value:,.2f}", f"${profit:+,.2f}")
@@ -857,10 +985,71 @@ def main():
             st.metric("Total Invested", f"${total_contributed:,.2f}", f"Contributed")
         
         with col3:
-            st.metric("ROI", f"{roi:.1f}%", f"{roi:.1f}%")
+            roi_metric = st.metric("ROI", f"{roi:.1f}%", f"{roi:.1f}%")
         
         with col4:
             st.metric("Win Rate", f"{win_rate:.1f}%")
+        
+        with col5:
+            # Performance advisor button
+            if st.button("🧠 **Improve ROI**", help="Get AI suggestions to optimize performance", type="secondary"):
+                st.session_state['show_advisor'] = True
+        
+        # Show performance advisor if requested
+        if st.session_state.get('show_advisor', False):
+            current_settings = {
+                'momentum_threshold': momentum_threshold,
+                'profit_target': profit_target,
+                'stop_loss': stop_loss,
+                'portfolio_heat_limit': portfolio_heat_limit,
+                'trailing_stop_distance': trailing_stop_distance,
+                'volume_spike_required': volume_spike_required,
+                'min_hold_days': min_hold_days
+            }
+            
+            new_settings = show_performance_advisor(results, current_settings)
+            
+            if new_settings:
+                # Apply new settings and rerun
+                st.session_state['show_advisor'] = False
+                st.success("🎯 Applying optimized settings and rerunning NALA...")
+                
+                # Update session state with new settings for next run
+                for key, value in new_settings.items():
+                    st.session_state[f'optimized_{key}'] = value
+                
+                # Rerun with new settings
+                with st.spinner("🐕 NALA is re-analyzing with optimized settings..."):
+                    optimized_results = trader.run_backtest(
+                        initial_capital=initial_investment,
+                        weekly_addition=weekly_contribution,
+                        max_positions=max_positions,
+                        momentum_threshold=new_settings['momentum_threshold'],
+                        profit_target=new_settings['profit_target']/100,
+                        stop_loss=new_settings['stop_loss']/100,
+                        portfolio_heat_limit=new_settings['portfolio_heat_limit'],
+                        trailing_stop_distance=new_settings['trailing_stop_distance'],
+                        volume_spike_required=new_settings['volume_spike_required'],
+                        min_hold_days=new_settings['min_hold_days'],
+                        start_date=start_date,
+                        end_date=end_date
+                    )
+                
+                if optimized_results:
+                    # Show comparison
+                    old_roi = roi
+                    new_roi = (optimized_results['final_value'] - optimized_results['total_contributed']) / optimized_results['total_contributed'] * 100
+                    improvement = new_roi - old_roi
+                    
+                    if improvement > 0:
+                        st.success(f"🎉 **Optimization Success!** ROI improved from {old_roi:.1f}% to {new_roi:.1f}% (+{improvement:.1f}%)")
+                        st.session_state['results'] = optimized_results
+                        st.rerun()
+                    else:
+                        st.warning(f"🤔 **Mixed Results**: ROI changed from {old_roi:.1f}% to {new_roi:.1f}% ({improvement:+.1f}%). Your original settings might have been better for this time period.")
+            
+            elif st.session_state.get('show_advisor'):
+                st.session_state['show_advisor'] = False
         
         # Performance chart
         if results['daily_values'] and PLOTLY_AVAILABLE:
