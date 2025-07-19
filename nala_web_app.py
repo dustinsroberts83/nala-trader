@@ -641,58 +641,6 @@ def analyze_performance_and_suggest(results, current_settings):
     
     return suggestions, new_settings
 
-def show_performance_advisor(results, current_settings):
-    """Show performance analysis and improvement suggestions"""
-    
-    suggestions, new_settings = analyze_performance_and_suggest(results, current_settings)
-    
-    if not suggestions:
-        st.success("🎉 **Excellent performance!** Your settings are already well-optimized.")
-        return None
-    
-    with st.expander("🧠 NALA's Performance Advisor", expanded=True):
-        roi = (results['final_value'] - results['total_contributed']) / results['total_contributed'] * 100
-        
-        st.markdown(f"### 📊 Performance Analysis (ROI: {roi:.1f}%)")
-        
-        # Show suggestions
-        st.markdown("### 💡 **Suggested Improvements:**")
-        for suggestion in suggestions:
-            st.markdown(f"- {suggestion}")
-        
-        # Show what will change
-        st.markdown("### ⚙️ **Proposed Setting Changes:**")
-        changes_made = False
-        
-        for key, new_value in new_settings.items():
-            old_value = current_settings[key]
-            if new_value != old_value:
-                changes_made = True
-                change_direction = "↗️" if new_value > old_value else "↘️"
-                setting_name = key.replace('_', ' ').title()
-                st.markdown(f"- **{setting_name}**: {old_value} → {new_value} {change_direction}")
-        
-        if not changes_made:
-            st.info("No setting changes recommended - try adjusting your date range or initial investment.")
-            return None
-        
-        # Expected impact
-        expected_impact = "higher win rate" if roi < 10 else "better risk-adjusted returns"
-        st.info(f"🎯 **Expected Impact**: These changes should improve {expected_impact} and overall performance.")
-        
-        # Action buttons
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("✅ **Apply Changes & Rerun**", type="primary", use_container_width=True):
-                return new_settings
-        
-        with col2:
-            if st.button("❌ **Keep Current Settings**", use_container_width=True):
-                return None
-    
-    return None
-
 def show_strategy_explanation(max_positions, momentum_threshold, profit_target, stop_loss,
                             portfolio_heat_limit, trailing_stop_distance, volume_spike_required, min_hold_days):
     """Show detailed explanation of NALA's trading logic"""
@@ -841,11 +789,12 @@ def main():
     # Strategy settings
     st.sidebar.subheader("NALA Strategy Settings")
     
+    # Check if we have optimized settings from the advisor
     max_positions = st.sidebar.slider(
         "Max Positions",
         min_value=1,
         max_value=10,
-        value=6,
+        value=st.session_state.get('optimized_max_positions', 6),
         help="Maximum number of stocks to hold simultaneously"
     )
     
@@ -853,7 +802,7 @@ def main():
         "Momentum Threshold",
         min_value=5.0,
         max_value=50.0,
-        value=15.0,
+        value=st.session_state.get('optimized_momentum_threshold', 15.0),
         step=0.5,
         help="Minimum momentum score required to trigger buy signals"
     )
@@ -862,7 +811,7 @@ def main():
         "Profit Target (%)",
         min_value=5,
         max_value=100,
-        value=25,
+        value=st.session_state.get('optimized_profit_target', 25),
         help="Automatically sell when position reaches this profit percentage"
     )
     
@@ -870,7 +819,7 @@ def main():
         "Stop Loss (%)",
         min_value=1,
         max_value=20,
-        value=7,
+        value=st.session_state.get('optimized_stop_loss', 7),
         help="Automatically sell when position loses this percentage"
     )
     
@@ -881,7 +830,7 @@ def main():
         "Portfolio Heat Limit (%)",
         min_value=25,
         max_value=100,
-        value=75,
+        value=st.session_state.get('optimized_portfolio_heat_limit', 75),
         step=5,
         help="Maximum percentage of portfolio invested at once (rest stays in cash)"
     )
@@ -890,7 +839,7 @@ def main():
         "Trailing Stop Distance (%)",
         min_value=5,
         max_value=30,
-        value=15,
+        value=st.session_state.get('optimized_trailing_stop_distance', 15),
         step=1,
         help="How far below peak price to set trailing stop loss"
     )
@@ -899,7 +848,7 @@ def main():
         "Volume Spike Required (%)",
         min_value=100,
         max_value=300,
-        value=120,
+        value=st.session_state.get('optimized_volume_spike_required', 120),
         step=10,
         help="Require this % of average volume before buying (120% = 20% above normal)"
     )
@@ -908,7 +857,7 @@ def main():
         "Minimum Hold Days",
         min_value=1,
         max_value=14,
-        value=3,
+        value=st.session_state.get('optimized_min_hold_days', 3),
         help="Minimum days to hold a position before considering exit"
     )
     
@@ -993,63 +942,62 @@ def main():
         with col5:
             # Performance advisor button
             if st.button("🧠 **Improve ROI**", help="Get AI suggestions to optimize performance", type="secondary"):
-                st.session_state['show_advisor'] = True
-        
-        # Show performance advisor if requested
-        if st.session_state.get('show_advisor', False):
-            current_settings = {
-                'momentum_threshold': momentum_threshold,
-                'profit_target': profit_target,
-                'stop_loss': stop_loss,
-                'portfolio_heat_limit': portfolio_heat_limit,
-                'trailing_stop_distance': trailing_stop_distance,
-                'volume_spike_required': volume_spike_required,
-                'min_hold_days': min_hold_days
-            }
-            
-            new_settings = show_performance_advisor(results, current_settings)
-            
-            if new_settings:
-                # Apply new settings and rerun
-                st.session_state['show_advisor'] = False
-                st.success("🎯 Applying optimized settings and rerunning NALA...")
+                current_settings = {
+                    'momentum_threshold': momentum_threshold,
+                    'profit_target': profit_target,
+                    'stop_loss': stop_loss,
+                    'portfolio_heat_limit': portfolio_heat_limit,
+                    'trailing_stop_distance': trailing_stop_distance,
+                    'volume_spike_required': volume_spike_required,
+                    'min_hold_days': min_hold_days
+                }
                 
-                # Update session state with new settings for next run
-                for key, value in new_settings.items():
-                    st.session_state[f'optimized_{key}'] = value
+                suggestions, new_settings = analyze_performance_and_suggest(results, current_settings)
                 
-                # Rerun with new settings
-                with st.spinner("🐕 NALA is re-analyzing with optimized settings..."):
-                    optimized_results = trader.run_backtest(
-                        initial_capital=initial_investment,
-                        weekly_addition=weekly_contribution,
-                        max_positions=max_positions,
-                        momentum_threshold=new_settings['momentum_threshold'],
-                        profit_target=new_settings['profit_target']/100,
-                        stop_loss=new_settings['stop_loss']/100,
-                        portfolio_heat_limit=new_settings['portfolio_heat_limit'],
-                        trailing_stop_distance=new_settings['trailing_stop_distance'],
-                        volume_spike_required=new_settings['volume_spike_required'],
-                        min_hold_days=new_settings['min_hold_days'],
-                        start_date=start_date,
-                        end_date=end_date
-                    )
-                
-                if optimized_results:
-                    # Show comparison
-                    old_roi = roi
-                    new_roi = (optimized_results['final_value'] - optimized_results['total_contributed']) / optimized_results['total_contributed'] * 100
-                    improvement = new_roi - old_roi
-                    
-                    if improvement > 0:
-                        st.success(f"🎉 **Optimization Success!** ROI improved from {old_roi:.1f}% to {new_roi:.1f}% (+{improvement:.1f}%)")
-                        st.session_state['results'] = optimized_results
-                        st.rerun()
-                    else:
-                        st.warning(f"🤔 **Mixed Results**: ROI changed from {old_roi:.1f}% to {new_roi:.1f}% ({improvement:+.1f}%). Your original settings might have been better for this time period.")
-            
-            elif st.session_state.get('show_advisor'):
-                st.session_state['show_advisor'] = False
+                if suggestions:
+                    with st.expander("🧠 NALA's Performance Advisor", expanded=True):
+                        st.markdown(f"### 📊 Performance Analysis (ROI: {roi:.1f}%)")
+                        
+                        # Show suggestions
+                        st.markdown("### 💡 **Suggested Improvements:**")
+                        for suggestion in suggestions:
+                            st.markdown(f"- {suggestion}")
+                        
+                        # Show what will change
+                        st.markdown("### ⚙️ **Proposed Setting Changes:**")
+                        changes_made = False
+                        
+                        for key, new_value in new_settings.items():
+                            old_value = current_settings[key]
+                            if new_value != old_value:
+                                changes_made = True
+                                change_direction = "↗️" if new_value > old_value else "↘️"
+                                setting_name = key.replace('_', ' ').title()
+                                st.markdown(f"- **{setting_name}**: {old_value} → {new_value} {change_direction}")
+                        
+                        if changes_made:
+                            expected_impact = "higher win rate" if roi < 10 else "better risk-adjusted returns"
+                            st.info(f"🎯 **Expected Impact**: These changes should improve {expected_impact} and overall performance.")
+                            
+                            # Action buttons
+                            col_btn1, col_btn2 = st.columns(2)
+                            
+                            with col_btn1:
+                                if st.button("✅ **Apply Changes & Rerun**", type="primary", use_container_width=True):
+                                    # Store optimized settings in session state
+                                    for key, value in new_settings.items():
+                                        st.session_state[f'optimized_{key}'] = value
+                                    
+                                    st.success("🎯 Settings updated! Click 'Nala Fetch' in the sidebar to run with optimized settings.")
+                                    st.info("👈 **Next Step**: Use the 'Nala Fetch' button in the sidebar to run NALA with your new optimized settings!")
+                            
+                            with col_btn2:
+                                if st.button("❌ **Keep Current Settings**", use_container_width=True):
+                                    st.info("Keeping your original settings.")
+                        else:
+                            st.info("No setting changes recommended - try adjusting your date range or initial investment.")
+                else:
+                    st.success("🎉 **Excellent performance!** Your settings are already well-optimized.")
         
         # Performance chart
         if results['daily_values'] and PLOTLY_AVAILABLE:
