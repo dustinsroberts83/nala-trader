@@ -39,29 +39,53 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for modern styling
+# Force dark theme and custom styling
 st.markdown("""
 <style>
+    /* Force dark theme */
+    .stApp {
+        background-color: #0E1117;
+        color: white;
+    }
+    
+    /* Main container styling */
+    .main .block-container {
+        background-color: #0E1117;
+        color: white;
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: #262730;
+    }
+    
+    /* Header styling */
     .main-header {
         display: flex;
         align-items: center;
         padding: 1rem 0;
-        border-bottom: 2px solid #f0f2f6;
+        border-bottom: 2px solid #262730;
         margin-bottom: 2rem;
+        background-color: #0E1117;
     }
+    
     .logo {
         margin-right: 20px;
     }
+    
     .title-section h1 {
         margin: 0;
-        color: #1f1f1f;
+        color: white !important;
         font-size: 2.5rem;
     }
+    
     .subtitle {
-        color: #666;
+        color: #A0A0A0 !important;
         font-size: 1.2rem;
         margin-top: 0.5rem;
     }
+    
+    /* Metric cards */
     .metric-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
@@ -70,24 +94,105 @@ st.markdown("""
         text-align: center;
         margin: 0.5rem 0;
     }
+    
     .success-metric {
         background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
     }
+    
     .danger-metric {
         background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
     }
-    .trade-card {
-        border: 1px solid #e0e0e0;
+    
+    /* Force white text on all elements */
+    .stMarkdown, .stText, .stMetric, .stDataFrame {
+        color: white !important;
+    }
+    
+    /* Input fields dark theme */
+    .stNumberInput > div > div > input,
+    .stDateInput > div > div > input,
+    .stSlider > div > div > div {
+        background-color: #262730 !important;
+        color: white !important;
+        border: 1px solid #404040 !important;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #4a9eff 0%, #0066cc 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.6rem 1.2rem;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #6bb3ff 0%, #0080ff 100%);
+        transform: translateY(-2px);
+    }
+    
+    /* Success/Error message styling */
+    .stAlert {
+        background-color: #262730 !important;
+        border: 1px solid #404040 !important;
+        color: white !important;
+    }
+    
+    /* Data table styling */
+    .stDataFrame {
+        background-color: #1E1E1E !important;
+    }
+    
+    .stDataFrame table {
+        background-color: #1E1E1E !important;
+        color: white !important;
+    }
+    
+    .stDataFrame th {
+        background-color: #262730 !important;
+        color: white !important;
+    }
+    
+    .stDataFrame td {
+        background-color: #1E1E1E !important;
+        color: white !important;
+    }
+    
+    /* Progress bar styling */
+    .stProgress .st-bo {
+        background-color: #4a9eff !important;
+    }
+    
+    /* Radio button styling */
+    .stRadio > div {
+        background-color: #262730;
         border-radius: 8px;
         padding: 1rem;
-        margin: 0.5rem 0;
-        background: white;
     }
-    .buy-trade {
-        border-left: 4px solid #00d4aa;
+    
+    /* Hide Streamlit menu and footer for cleaner look */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
     }
-    .sell-trade {
-        border-left: 4px solid #ff6b6b;
+    
+    ::-webkit-scrollbar-track {
+        background: #262730;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #4a9eff;
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #6bb3ff;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -195,8 +300,9 @@ class NalaTrader:
         return data_dict
     
     def run_backtest(self, initial_capital, weekly_addition, max_positions, 
-                     momentum_threshold, profit_target, stop_loss, start_date, end_date):
-        """Run the backtest simulation"""
+                     momentum_threshold, profit_target, stop_loss, portfolio_heat_limit,
+                     trailing_stop_distance, volume_spike_required, min_hold_days, start_date, end_date):
+        """Run the backtest simulation with advanced controls"""
         
         # Initialize variables
         positions = {}
@@ -205,8 +311,9 @@ class NalaTrader:
         daily_values = []
         total_contributed = initial_capital
         max_position_size = 0.25
-        max_portfolio_heat = 0.75
-        trailing_stop = 0.15
+        max_portfolio_heat = portfolio_heat_limit / 100  # Convert to decimal
+        trailing_stop = trailing_stop_distance / 100  # Convert to decimal
+        volume_threshold = volume_spike_required / 100  # Convert to decimal
         max_trades_per_day = 2
         
         # Download data
@@ -324,11 +431,18 @@ class NalaTrader:
                                 if current_price >= 10:  # Quality filter
                                     momentum_score = self.calculate_momentum_score(current_data)
                                     if momentum_score >= momentum_threshold:
-                                        opportunities.append({
-                                            'symbol': symbol,
-                                            'score': momentum_score,
-                                            'price': current_price
-                                        })
+                                        # Check volume requirement
+                                        volume = current_data['Volume']
+                                        avg_volume_20 = self.safe_float(volume.rolling(20).mean().iloc[-1])
+                                        recent_volume = self.safe_float(volume.iloc[-1])
+                                        volume_ratio = recent_volume / avg_volume_20 if avg_volume_20 > 0 else 0
+                                        
+                                        if volume_ratio >= volume_threshold:
+                                            opportunities.append({
+                                                'symbol': symbol,
+                                                'score': momentum_score,
+                                                'price': current_price
+                                            })
                     
                     # Sort and execute trades
                     opportunities.sort(key=lambda x: x['score'], reverse=True)
@@ -399,6 +513,72 @@ class NalaTrader:
             'positions': positions,
             'cash': cash
         }
+
+def show_strategy_explanation(max_positions, momentum_threshold, profit_target, stop_loss,
+                            portfolio_heat_limit, trailing_stop_distance, volume_spike_required, min_hold_days):
+    """Show detailed explanation of NALA's trading logic"""
+    
+    with st.expander("🧠 NALA's Trading Logic Explained", expanded=True):
+        st.markdown("### 🐕 How NALA Will Trade With Your Settings")
+        
+        # Entry Logic
+        st.markdown("#### 🎯 **Entry Logic** - When NALA Buys:")
+        st.markdown(f"""
+        1. **Scan 60+ Quality Stocks** daily for opportunities
+        2. **Momentum Score ≥ {momentum_threshold}** - Combines 5-day, 10-day, and 20-day price momentum
+        3. **Volume Confirmation** - Requires {volume_spike_required}% of average volume (filters out weak moves)
+        4. **Price Action** - Stock must be above both 20-day and 50-day moving averages
+        5. **Portfolio Limits** - Only if we have fewer than {max_positions} positions and less than {portfolio_heat_limit}% invested
+        6. **Position Size** - Each position will be ~{100/max_positions:.0f}% of portfolio (max 25%)
+        """)
+        
+        # Exit Logic
+        st.markdown("#### 🚪 **Exit Logic** - When NALA Sells:")
+        st.markdown(f"""
+        1. **Profit Target**: Sell at +{profit_target}% gain 🎉
+        2. **Stop Loss**: Sell at -{stop_loss}% loss 🛑  
+        3. **Trailing Stop**: Sell if price drops {trailing_stop_distance}% from highest point (locks in profits)
+        4. **Momentum Fade**: After {min_hold_days} days, sell if momentum score drops below {momentum_threshold * 0.6:.1f}
+        5. **Time Limit**: Sell after 30 days regardless (prevents dead money)
+        """)
+        
+        # Risk Management
+        st.markdown("#### 🛡️ **Risk Management**:")
+        st.markdown(f"""
+        - **Cash Reserve**: Keep {100-portfolio_heat_limit}% in cash as safety buffer
+        - **Position Sizing**: Max {100/max_positions:.0f}% per stock prevents concentration risk
+        - **Quality Filter**: Only trades stocks above $10 with good liquidity
+        - **No Correlation**: Avoids buying too many similar stocks
+        """)
+        
+        # Example Scenario
+        st.markdown("#### 📈 **Example Trade Scenario**:")
+        example_investment = 1000
+        position_size = example_investment * 0.25
+        profit_amount = position_size * (profit_target/100)
+        loss_amount = position_size * (stop_loss/100)
+        
+        st.markdown(f"""
+        **With ${example_investment:,} portfolio:**
+        - NALA finds AAPL with momentum score {momentum_threshold + 5}
+        - Buys ${position_size:.0f} worth (~{100/max_positions:.0f}% of portfolio)
+        - Sets stop loss at -{stop_loss}% (max loss: ${loss_amount:.0f})
+        - Takes profit at +{profit_target}% (profit: ${profit_amount:.0f})
+        - Trails stop {trailing_stop_distance}% below highest price
+        """)
+        
+        # Strategy Summary
+        st.markdown("#### 🎯 **Strategy Summary**:")
+        conservatism = "Conservative" if momentum_threshold > 20 else "Moderate" if momentum_threshold > 10 else "Aggressive"
+        risk_level = "Low" if stop_loss < 5 else "Medium" if stop_loss < 10 else "High"
+        
+        st.info(f"""
+        **Trading Style**: {conservatism} momentum following
+        **Risk Level**: {risk_level} risk tolerance
+        **Expected Trades**: ~{max_positions * 2}-{max_positions * 4} per month
+        **Cash Management**: Keep {100-portfolio_heat_limit}% cash buffer
+        **Win Rate Target**: 45-65% (higher momentum threshold = higher win rate)
+        """)
 
 def create_header():
     """Create the header with NALA's photo"""
@@ -515,6 +695,51 @@ def main():
         help="Automatically sell when position loses this percentage"
     )
     
+    # Advanced strategy controls
+    st.sidebar.subheader("Advanced Controls")
+    
+    portfolio_heat_limit = st.sidebar.slider(
+        "Portfolio Heat Limit (%)",
+        min_value=25,
+        max_value=100,
+        value=75,
+        step=5,
+        help="Maximum percentage of portfolio invested at once (rest stays in cash)"
+    )
+    
+    trailing_stop_distance = st.sidebar.slider(
+        "Trailing Stop Distance (%)",
+        min_value=5,
+        max_value=30,
+        value=15,
+        step=1,
+        help="How far below peak price to set trailing stop loss"
+    )
+    
+    volume_spike_required = st.sidebar.slider(
+        "Volume Spike Required (%)",
+        min_value=100,
+        max_value=300,
+        value=120,
+        step=10,
+        help="Require this % of average volume before buying (120% = 20% above normal)"
+    )
+    
+    min_hold_days = st.sidebar.slider(
+        "Minimum Hold Days",
+        min_value=1,
+        max_value=14,
+        value=3,
+        help="Minimum days to hold a position before considering exit"
+    )
+    
+    # Strategy explanation button
+    if st.sidebar.button("🧠 Explain NALA's Logic", help="See exactly how NALA will trade with your settings"):
+        show_strategy_explanation(
+            max_positions, momentum_threshold, profit_target, stop_loss,
+            portfolio_heat_limit, trailing_stop_distance, volume_spike_required, min_hold_days
+        )
+    
     # Main content area
     if st.sidebar.button("🐕 Nala Fetch", type="primary", use_container_width=True):
         end_date = datetime.now().date()  # Convert to date object
@@ -528,6 +753,10 @@ def main():
                     momentum_threshold=momentum_threshold,
                     profit_target=profit_target/100,
                     stop_loss=stop_loss/100,
+                    portfolio_heat_limit=portfolio_heat_limit,
+                    trailing_stop_distance=trailing_stop_distance,
+                    volume_spike_required=volume_spike_required,
+                    min_hold_days=min_hold_days,
                     start_date=start_date,
                     end_date=end_date
                 )
@@ -567,20 +796,20 @@ def main():
         # Results dashboard
         st.header("🐕 NALA Trading Results")
         
-        # Key metrics
+        # Key metrics with total investment
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             st.metric("Final Value", f"${final_value:,.2f}", f"${profit:+,.2f}")
         
         with col2:
-            st.metric("ROI", f"{roi:.1f}%", f"{roi:.1f}%")
+            st.metric("Total Invested", f"${total_contributed:,.2f}", f"Contributed")
         
         with col3:
-            st.metric("Win Rate", f"{win_rate:.1f}%")
+            st.metric("ROI", f"{roi:.1f}%", f"{roi:.1f}%")
         
         with col4:
-            st.metric("Total Trades", len(trades))
+            st.metric("Win Rate", f"{win_rate:.1f}%")
         
         # Performance chart
         if results['daily_values'] and PLOTLY_AVAILABLE:
