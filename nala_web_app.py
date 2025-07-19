@@ -199,15 +199,64 @@ st.markdown("""
 
 class NalaTrader:
     def __init__(self):
+        # Expanded stock universe - 250+ quality stocks
         self.stock_universe = [
-            'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NFLX',
-            'ADBE', 'CRM', 'ORCL', 'INTC', 'AMD', 'QCOM', 'AVGO', 'CSCO',
-            'PYPL', 'UBER', 'ZM', 'ROKU', 'SHOP', 'SNAP',
-            'COST', 'HD', 'WMT', 'DIS', 'NKE', 'SBUX', 'MCD', 'LOW',
-            'TGT', 'LULU', 'AMGN', 'GILD', 'MRNA', 'PFE', 'JNJ', 'UNH',
-            'MA', 'V', 'JPM', 'BAC', 'GS', 'MS', 'WFC', 'C',
-            'XLK', 'XLF', 'XLE', 'XLV', 'XLI', 'XLY', 'XLP', 'XLU',
-            'XLB', 'XLRE', 'QQQ', 'SPY', 'IWM', 'VTI'
+            # Large Cap Tech Leaders (30)
+            'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'GOOG', 'AMZN', 'META', 'TSLA', 'NFLX', 'ADBE',
+            'CRM', 'ORCL', 'INTC', 'AMD', 'QCOM', 'AVGO', 'CSCO', 'PYPL', 'UBER', 'ZM',
+            'ROKU', 'SHOP', 'SNAP', 'SQ', 'TWLO', 'OKTA', 'SNOW', 'PLTR', 'DOCU', 'ZS',
+            
+            # Software & Cloud (25)
+            'NOW', 'WDAY', 'TEAM', 'HUBS', 'DDOG', 'NET', 'CRWD', 'PANW', 'FTNT', 'SPLK',
+            'VEEV', 'ANSS', 'CDNS', 'SNPS', 'ADSK', 'INTU', 'CXM', 'BILL', 'MDB', 'ESTC',
+            'MRVL', 'AMAT', 'LRCX', 'KLAC', 'ASML', 
+            
+            # Semiconductors (20)
+            'TSM', 'SMH', 'SOXX', 'MU', 'NXPI', 'TXN', 'ADI', 'MCHP', 'ON', 'SWKS',
+            'QRVO', 'MPWR', 'ENPH', 'SEDG', 'WOLF', 'FSLR', 'SPWR', 'RUN', 'CSIQ', 'JKS',
+            
+            # Consumer/Retail (30)
+            'AMZN', 'COST', 'WMT', 'TGT', 'HD', 'LOW', 'NKE', 'SBUX', 'MCD', 'DIS',
+            'LULU', 'TJX', 'ROST', 'BBY', 'EBAY', 'ETSY', 'W', 'CHWY', 'PINS', 'MTCH',
+            'ABNB', 'DASH', 'LYFT', 'DKNG', 'PENN', 'MGM', 'WYNN', 'LVS', 'NCLH', 'CCL',
+            
+            # Healthcare & Biotech (30)
+            'UNH', 'JNJ', 'PFE', 'AMGN', 'GILD', 'MRNA', 'BNTX', 'ABBV', 'TMO', 'DHR',
+            'ISRG', 'VRTX', 'REGN', 'BIIB', 'ILMN', 'MELI', 'ZTS', 'DXCM', 'EW', 'SYK',
+            'BSX', 'MDT', 'ABT', 'BAX', 'BDX', 'ALGN', 'HOLX', 'A', 'WAT', 'IDXX',
+            
+            # Financial Services (25)
+            'MA', 'V', 'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'AXP', 'BLK',
+            'SPGI', 'ICE', 'CME', 'MCO', 'COF', 'DFS', 'SYF', 'ALLY', 'SOFI', 'AFRM',
+            'UPST', 'LC', 'HOOD', 'COIN', 'MSTR',
+            
+            # Energy & Materials (20)
+            'XOM', 'CVX', 'COP', 'EOG', 'PXD', 'SLB', 'HAL', 'DVN', 'FANG', 'MRO',
+            'FCX', 'NEM', 'GOLD', 'AEM', 'KGC', 'AA', 'SCCO', 'VALE', 'RIO', 'BHP',
+            
+            # Industrial & Transportation (25)
+            'CAT', 'DE', 'HON', 'UPS', 'FDX', 'LMT', 'BA', 'RTX', 'NOC', 'GD',
+            'MMM', 'GE', 'EMR', 'ETN', 'PH', 'ROK', 'DOV', 'ITW', 'TDG', 'CARR',
+            'OTIS', 'PWR', 'FTV', 'XYL', 'AME',
+            
+            # Communication & Media (15)
+            'T', 'VZ', 'TMUS', 'CHTR', 'CMCSA', 'VIA', 'VIAB', 'FOXA', 'FOX', 'NWSA',
+            'NWS', 'IPG', 'OMC', 'TTWO', 'EA',
+            
+            # Real Estate & REITs (15)
+            'AMT', 'PLD', 'CCI', 'EQIX', 'PSA', 'EXR', 'AVB', 'EQR', 'MAA', 'ESS',
+            'UDR', 'CPT', 'AIV', 'BXP', 'VTR',
+            
+            # Utilities & Infrastructure (10)
+            'NEE', 'DUK', 'SO', 'D', 'EXC', 'SRE', 'AEP', 'XEL', 'ED', 'ES',
+            
+            # Growth & Emerging (20)
+            'RIVN', 'LCID', 'F', 'GM', 'HOOD', 'RBLX', 'U', 'OPEN', 'PTON', 'BYND',
+            'TDOC', 'TELADOC', 'CRSP', 'EDIT', 'NTLA', 'BEAM', 'PACB', 'ILMN', 'NVTA', 'INVZ',
+            
+            # Major ETFs & Indexes (15)
+            'SPY', 'QQQ', 'IWM', 'VTI', 'VTV', 'VUG', 'VOO', 'VEA', 'VWO', 'BND',
+            'XLK', 'XLF', 'XLE', 'XLV', 'XLI', 'XLY', 'XLP', 'XLU', 'XLB', 'XLRE',
         ]
         
     def safe_float(self, value):
@@ -323,6 +372,8 @@ class NalaTrader:
         if not data_dict:
             st.error("No data available for backtesting")
             return None
+        
+        st.success(f"✅ Successfully loaded {len(data_dict)} stocks from universe of {len(self.stock_universe)}")
         
         # Get trading dates
         sample_data = list(data_dict.values())[0]
@@ -524,7 +575,7 @@ def show_strategy_explanation(max_positions, momentum_threshold, profit_target, 
         # Entry Logic
         st.markdown("#### 🎯 **Entry Logic** - When NALA Buys:")
         st.markdown(f"""
-        1. **Scan 60+ Quality Stocks** daily for opportunities
+        1. **Scan 250+ Quality Stocks** daily for opportunities
         2. **Momentum Score ≥ {momentum_threshold}** - Combines 5-day, 10-day, and 20-day price momentum
         3. **Volume Confirmation** - Requires {volume_spike_required}% of average volume (filters out weak moves)
         4. **Price Action** - Stock must be above both 20-day and 50-day moving averages
