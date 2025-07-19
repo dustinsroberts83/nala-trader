@@ -869,7 +869,10 @@ def main():
         )
     
     # Main content area
-    if st.sidebar.button("🐕 Nala Fetch", type="primary", use_container_width=True):
+    if st.sidebar.button("🐕 Nala Fetch", type="primary", use_container_width=True) or st.session_state.get('auto_rerun', False):
+        if st.session_state.get('auto_rerun', False):
+            st.session_state['auto_rerun'] = False  # Reset the flag
+            
         end_date = datetime.now().date()  # Convert to date object
         
         try:
@@ -925,7 +928,7 @@ def main():
         st.header("🐕 NALA Trading Results")
         
         # Key metrics with total investment and advisor
-        col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 1.5, 1.5])
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             st.metric("Final Value", f"${final_value:,.2f}", f"${profit:+,.2f}")
@@ -934,70 +937,105 @@ def main():
             st.metric("Total Invested", f"${total_contributed:,.2f}", f"Contributed")
         
         with col3:
-            roi_metric = st.metric("ROI", f"{roi:.1f}%", f"{roi:.1f}%")
+            st.metric("ROI", f"{roi:.1f}%", f"{roi:.1f}%")
         
         with col4:
             st.metric("Win Rate", f"{win_rate:.1f}%")
         
-        with col5:
-            # Performance advisor button
-            if st.button("🧠 **Improve ROI**", help="Get AI suggestions to optimize performance", type="secondary"):
-                current_settings = {
-                    'momentum_threshold': momentum_threshold,
-                    'profit_target': profit_target,
-                    'stop_loss': stop_loss,
-                    'portfolio_heat_limit': portfolio_heat_limit,
-                    'trailing_stop_distance': trailing_stop_distance,
-                    'volume_spike_required': volume_spike_required,
-                    'min_hold_days': min_hold_days
-                }
+        # Performance advisor section - full width below metrics
+        st.markdown("---")
+        
+        col_advisor1, col_advisor2 = st.columns([3, 1])
+        
+        with col_advisor1:
+            st.markdown("### 🧠 Performance Optimization")
+            
+        with col_advisor2:
+            if st.button("🧠 **Improve ROI**", help="Get AI suggestions to optimize performance", type="primary", use_container_width=True):
+                st.session_state['show_advisor'] = True
+        
+        # Show performance advisor if requested
+        if st.session_state.get('show_advisor', False):
+            current_settings = {
+                'momentum_threshold': momentum_threshold,
+                'profit_target': profit_target,
+                'stop_loss': stop_loss,
+                'portfolio_heat_limit': portfolio_heat_limit,
+                'trailing_stop_distance': trailing_stop_distance,
+                'volume_spike_required': volume_spike_required,
+                'min_hold_days': min_hold_days
+            }
+            
+            suggestions, new_settings = analyze_performance_and_suggest(results, current_settings)
+            
+            if suggestions:
+                # Full width advisor panel
+                st.markdown("#### 📊 Performance Analysis")
+                st.info(f"**Current ROI**: {roi:.1f}% | **Win Rate**: {win_rate:.1f}% | **Total Trades**: {len(completed_trades)}")
                 
-                suggestions, new_settings = analyze_performance_and_suggest(results, current_settings)
+                # Show suggestions in two columns
+                col_sugg1, col_sugg2 = st.columns(2)
                 
-                if suggestions:
-                    with st.expander("🧠 NALA's Performance Advisor", expanded=True):
-                        st.markdown(f"### 📊 Performance Analysis (ROI: {roi:.1f}%)")
-                        
-                        # Show suggestions
-                        st.markdown("### 💡 **Suggested Improvements:**")
-                        for suggestion in suggestions:
-                            st.markdown(f"- {suggestion}")
-                        
-                        # Show what will change
-                        st.markdown("### ⚙️ **Proposed Setting Changes:**")
-                        changes_made = False
-                        
-                        for key, new_value in new_settings.items():
-                            old_value = current_settings[key]
-                            if new_value != old_value:
-                                changes_made = True
-                                change_direction = "↗️" if new_value > old_value else "↘️"
-                                setting_name = key.replace('_', ' ').title()
-                                st.markdown(f"- **{setting_name}**: {old_value} → {new_value} {change_direction}")
-                        
-                        if changes_made:
-                            expected_impact = "higher win rate" if roi < 10 else "better risk-adjusted returns"
-                            st.info(f"🎯 **Expected Impact**: These changes should improve {expected_impact} and overall performance.")
+                with col_sugg1:
+                    st.markdown("##### 💡 **Suggested Improvements:**")
+                    for suggestion in suggestions:
+                        st.markdown(f"- {suggestion}")
+                
+                with col_sugg2:
+                    st.markdown("##### ⚙️ **Proposed Changes:**")
+                    changes_made = False
+                    
+                    for key, new_value in new_settings.items():
+                        old_value = current_settings[key]
+                        if new_value != old_value:
+                            changes_made = True
+                            change_direction = "↗️" if new_value > old_value else "↘️"
+                            setting_name = key.replace('_', ' ').title()
+                            st.markdown(f"- **{setting_name}**: {old_value} → {new_value} {change_direction}")
+                
+                if changes_made:
+                    expected_impact = "higher win rate" if roi < 10 else "better risk-adjusted returns"
+                    st.success(f"🎯 **Expected Impact**: These changes should improve {expected_impact} and overall performance.")
+                    
+                    # Action buttons - full width
+                    col_btn1, col_btn2, col_btn3 = st.columns([2, 2, 2])
+                    
+                    with col_btn1:
+                        if st.button("✅ **Apply Changes**", type="primary", use_container_width=True):
+                            # Store optimized settings in session state and force sidebar refresh
+                            for key, value in new_settings.items():
+                                st.session_state[f'optimized_{key}'] = value
                             
-                            # Action buttons
-                            col_btn1, col_btn2 = st.columns(2)
+                            # Clear the advisor and rerun to refresh sidebar
+                            st.session_state['show_advisor'] = False
+                            st.success("🎯 **Settings Applied!** Check the sidebar - your sliders have been updated with optimized values.")
+                            st.info("👈 **Next Step**: Click 'Nala Fetch' to run NALA with the new optimized settings!")
+                            st.rerun()
+                    
+                    with col_btn2:
+                        if st.button("❌ **Keep Current**", use_container_width=True):
+                            st.session_state['show_advisor'] = False
+                            st.rerun()
+                    
+                    with col_btn3:
+                        if st.button("🔄 **Auto-Run Now**", use_container_width=True, help="Apply changes and automatically rerun analysis"):
+                            # Apply settings and auto-rerun
+                            for key, value in new_settings.items():
+                                st.session_state[f'optimized_{key}'] = value
                             
-                            with col_btn1:
-                                if st.button("✅ **Apply Changes & Rerun**", type="primary", use_container_width=True):
-                                    # Store optimized settings in session state
-                                    for key, value in new_settings.items():
-                                        st.session_state[f'optimized_{key}'] = value
-                                    
-                                    st.success("🎯 Settings updated! Click 'Nala Fetch' in the sidebar to run with optimized settings.")
-                                    st.info("👈 **Next Step**: Use the 'Nala Fetch' button in the sidebar to run NALA with your new optimized settings!")
-                            
-                            with col_btn2:
-                                if st.button("❌ **Keep Current Settings**", use_container_width=True):
-                                    st.info("Keeping your original settings.")
-                        else:
-                            st.info("No setting changes recommended - try adjusting your date range or initial investment.")
+                            st.session_state['show_advisor'] = False
+                            st.session_state['auto_rerun'] = True
+                            st.rerun()
                 else:
-                    st.success("🎉 **Excellent performance!** Your settings are already well-optimized.")
+                    st.info("No setting changes recommended - try adjusting your date range or initial investment.")
+                    if st.button("Close", use_container_width=True):
+                        st.session_state['show_advisor'] = False
+                        st.rerun()
+            else:
+                st.success("🎉 **Excellent performance!** Your settings are already well-optimized.")
+                if st.button("Close", use_container_width=True):
+                    st.session_state['show_advisor'] = False
+                    st.rerun()
         
         # Performance chart
         if results['daily_values'] and PLOTLY_AVAILABLE:
